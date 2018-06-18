@@ -1,0 +1,211 @@
+---
+title: "The variance of "h" sound in a sample of Daghestanian languages"
+author: "Diana Senkina"
+date: "19 June 2018"
+---
+
+It is commonly believed that kh-sound is one of the features of Caucasian accent in Russian. However, there are few scientific research on the issue. The particularly difficult consonantal phonetics of Daghestanian languages is the obvious fact. For bilingual speakers it is quite difficult to fully acquire the natural Russian sounds.
+
+#Data
+We are basing the current research on the fourteen oral interviews collected in Makhachkala in January 2018. The sample is represented by the native speakers of several Daghestanian languages: Avar (3), Archi (2), Tsez (3), Dargi (2), Megeb Dargi (1), Tsakhur (2) and Tabasaran (1). On the whole, the data set includes 222 observations, the words including the variants of the h-sound.
+
+#The Null Hypotheses:
+(1) There is no correlation between the h-sound pronunciation and the mother tongue.
+(2) There is no correlation between the h-sound pronunciation and the sex of a speaker.
+(3) There is no correlation between the h-sound pronunciation and the word position.
+#The Alternative Hypotheses:
+(1) The kh-sound (kind of accent) in Russian is predifined by the mother tongue of a person.
+(2) On average, men and women pronounce h-sound differently.
+(3) H-sound is pronounced differently depending on the word position.
+
+At the begining, let us introduce the necessary libraries and read the data:
+```{r 0.0}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r 0.1}
+data_h <- read.csv("https://goo.gl/WxaoQu", sep = ";")
+```
+
+#Descriptive statistics
+To start with, we will bring up the descriptive graphs of the distribution of h-sound variants by (1)Mother tongue and (2)Sex.
+
+```{r 1.1}
+data_h%>%
+  group_by(Position, Consonant)%>%
+  ggplot(aes(x=Consonant,
+             fill=Consonant))+
+  geom_bar(position = "dodge")+
+  labs(title = "The distribution of h-sound variants for different Mother tongues",
+       x = "Consonant",
+       y = "Number of observations")+
+  facet_wrap(~Mother.tongue)+
+  coord_flip()
+```
+
+As we can see on the first graph, kh-sound in Russian is more common for the native speakers of Archi, Avar, Tsakhur and Tsez languages.
+Tsakhur and Megeb Dargi speakers use it approximately equally with the right Russian x-sound. Besides, only in the speach of Tsakhur speakers the aspirated h-sound was mentioned.
+The sound loss("-" sign) was mentioned in the speach of Avar, Tabasaran and Tsez speakers.
+Out of all the speakers, Tabasaran speaker`s pronunciation is the closest to the right Russian. The number of kh-sound and sound loss is low.
+
+```{r 1.2}
+data_h%>%
+  group_by(Consonant)%>%
+  ggplot(aes(x=Consonant,
+             fill=Consonant))+
+  geom_bar(position = "dodge")+
+  labs(title = "The distribution of h-sound variants for male and female",
+       x = "Consonant",
+       y = "Number of observations")+
+  facet_wrap(~Sex)+
+  coord_flip()
+```
+
+Looking at the second graph we see the difference in male and female speech. It is logically to assume the male pronunciation to be closer to the right Russian one. Kh-sound is more common for women.
+
+#Statistical significance test
+
+To perform the test (chi-squared or Fisher exact test) on statistical significance we need to create the contigency tables: (1) Consonant vs Sex, (2) Consonant vs Mother tongue, (3) Consonant vs Word position.
+
+```{r 2.1}
+data_h %>%
+  count(Consonant, Sex) %>% 
+  select(Sex, Consonant, n) %>% 
+  spread(Consonant, n, fill = 0)->
+  table_cons_sex
+```
+
+```{r 2.2}
+data_h %>%
+  filter(str_detect(Consonant, "x|kh"))%>%
+  count(Consonant, Mother.tongue) %>% 
+  select(Consonant, Mother.tongue, n) %>% 
+  spread(Mother.tongue, n, fill = 0)->
+  table_cons_mt
+```
+
+```{r 2.3}
+data_h %>%
+  count(Consonant, Position) %>% 
+  select(Consonant, Position, n) %>% 
+  spread(Position, n, fill = 0)->
+  table_pos
+```
+
+With the tables we can proceed with the Fisher exact test. Chi-squared test is not appropriate as the number of observations is quite low (lower than 5 in some cells).
+
+```{r 3.1}
+m_cons_sex <- matrix(unlist(table_cons_sex[, -1]), 2, 4)
+m_cons_sex
+fisher.test(m)
+```
+
+Basing on the p-value ~0.09 being 90% sure, we can state that there is the the statistically significant difference in the h-sound variant in male and female speech.
+So, we decline the Null Hypothesis and accept the Alternative one:
+on average, men and women pronounce h-sound differently.
+
+```{r 3.2}
+m_cons_mt <- matrix(unlist(table_cons_mt[, -1]), 2, 7)
+m_cons_mt
+fisher.test(m_cons_mt)
+```
+
+Even on the 90%-significance level (p-value 0.34), there is no statistically significant correlation between mother tongue of the speaker and his/her h-sound pronunciation variant.
+So, we accept the Null hypothesis:
+there is no correlation between the h-sound pronunciation and the mother tongue.
+
+```{r 3.3}
+m_pos <- matrix(unlist(table_pos[, -1]), 4, 3)
+m_pos
+fisher.test(m_pos)
+```
+
+Basing on the p-value ~0.09 being 90% sure, we can state that the consonant pronounced is correlated with its word position.
+So, we decline the Null Hypothesis and accept the Alternative one:
+h-sound is pronounced differently depending on the word position.
+
+Let us then build the graph reflecting the inference:
+```{r}
+data_h %>%
+  group_by(Consonant, Position) %>%
+  summarise(n_observ = n()) %>%
+  ggplot(aes(x = Consonant,
+             y = Position,
+             label = n_observ)) +
+  geom_point(aes(size = n_observ, color = n_observ)) +
+  guides(size = F) +
+  scale_color_continuous(low = "lightblue", high = "purple") +
+  scale_size(range = c(10, 30)) +
+  labs(title = "Correlation between the type of word position and the Consonant",
+       x = "Consonant",
+       y = "Word position")+
+  geom_text()
+```
+
+
+#Multiple correspondence analysis (MCA)
+
+Having defined a certain correlation between the variables we pass to the Multiple correspondence analysis which will help us to cluster (if possible) the data and then to plot it.
+
+
+To perform the MCA we use MASS library:
+```{r 3.0}
+pr_mca <- MASS::mca(data_h[,c(-3, -11, -12)])
+pr_mca
+```
+
+As we can see, the model explains 19.29% of variance in the data which is far from a perfect result.
+
+It is better to plot the model to observe the assumed assosiation between the variables: (1)consonant type and the sex of a speaker, (2)consonant type and the mother tongue of a speaker, (3)consonant type and the word position.
+
+```{r 3.1}
+data_mca <- cbind(data_h, pr_mca$rs)
+variables <- as_data_frame(pr_mca$cs)
+variables$var_names <- rownames(pr_mca$cs)
+data_mca %>% 
+  ggplot(aes(`1`, `2`))+
+  geom_point(aes(color = Consonant))+
+  stat_ellipse(aes(color = Sex))+
+  labs(title = "Multiple Correspondence Analysis",
+       subtitle = "Consonant type and Sex of the speaker",
+       x = "Dim 1",
+       y = "Dim 2")+
+  theme_bw()
+```
+
+According to the graph, men and women have different speech profiles regarding the h-sound pronunciation. They slightly intersect in the kh-sound pronunciation. That must be those words which belong to the same language native speakers.
+
+```{r 3.2}
+data_mca %>% 
+  ggplot(aes(`1`, `2`))+
+  geom_point(aes(color = Mother.tongue))+
+  stat_ellipse(aes(color = Mother.tongue))+
+  labs(title = "Multiple Correspondence Analysis",
+       subtitle = "Consonant type and Mother tongue of the speaker",
+       x = "Dim 1",
+       y = "Dim 2")+
+  theme_bw()
+```
+
+Regarding the interaction of Consonant type and a speaker`s mother tongue, the graph shows quite dense pronunciation profiles of the speakers of the same mother tongue. Neverteless, as we found out before, the correlation between the variables is not statistically significant.
+
+```{r 3.3}
+data_mca %>% 
+  ggplot(aes(`1`, `2`))+
+  geom_point(aes(color = Consonant))+
+  stat_ellipse(aes(color = Position))+
+  labs(title = "Multiple Correspondence Analysis",
+       subtitle = "Consonant type and Mother tongue of the Word position",
+       x = "Dim 1",
+       y = "Dim 2")+
+  theme_bw()
+```
+
+Although the Fisher exact test showed the statistically significant, correlation between consonant type and the word position, the mca-model reflects the scattered profiles. That means there is no h-sound pronunciation typical for any peculiar word position and vice versa.
+
+#Conclusion
+To sum up, we have analysed the assosiation of h-sound variants in Daghestanian languages speakers` speech with three factors, i.e. sex, mother tongue and the position in a word.
+Basing on the Fisher`s exact test we found the statistically significant correlation between h-sound pronunciation and the two following factors: (1)sex of the speaker and (2)the position of the sound in a word. Mother tongue turned to be statistically insignificant.
+Moreover, we have performed the Multiple Correspondence Analysis. It showed the dense separate h-sound speech profiles for men and women and for different mother tongues. According to the position in a word, the data are scattered.
